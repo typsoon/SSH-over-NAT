@@ -1,36 +1,7 @@
 # SSH-over-NAT
-You need to create an account on https://www.zerotier.com/.
 
-Then create a network and make it public(it is optional, otherwise you need to accept each device that is connect to your network).
+Challenge is to do achieve something like what you can see in `/archive` folder, but without using zerotier
 
-Then you copy Network ID and it will be used after option -j.
+`/simple` contains the baby version
 
-Running:
-
-sudo bash ./script #(and options)
-
-Options:
-
--i - install all required packages
-
--j NETWORK_ID - join zerotier network with specified id
-
--u - make network channel up
-
--d - make network channel down
-
-
-
-(So, at the very first time you need:
-
-sudo bash ./script -i -j <network-id> -u
-
-Later you can just do with -u)
-
-To connect by ssh you need to look on the device mapped address on your network in zerotier and connect to it by:
-
-ssh username@mapped-address
-
-In case of problems with option -j or with zerotier at all:
-
-sudo systemctl restart zerotier-one
+Further description coming soon.
