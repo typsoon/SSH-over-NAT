@@ -2,6 +2,38 @@
 
 Challenge is to do achieve something like what you can see in `/archive` folder, but without using zerotier
 
-AWS server at '13.61.13.117'
+## How to use
 
-Further description coming soon.
+### Prerequisites
+
+- pydoit installed, python-dotenv installed.
+
+On ubuntu
+
+```bash
+sudo apt install python3-doit
+```
+
+- Rendezvous server running rendezvous.py.
+
+### How to run it?
+
+Start ssh server on the server side of ssh. For example
+
+```bash
+sudo systemctl start sshd
+```
+
+Then
+
+- server
+
+```bash
+doit poc_server
+```
+
+- client
+
+```bash
+doit poc_client
+```

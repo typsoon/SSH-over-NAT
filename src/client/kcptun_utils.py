@@ -1,12 +1,14 @@
 import subprocess
 from pathlib import Path
 
-kcptun_dir_path = Path("../kcptun")
+kcptun_dir_path = Path(__file__).parents[2].resolve() / "kcptun"
 kcptun_client_path = kcptun_dir_path / "client_linux_amd64"
 kcptun_server_path = kcptun_dir_path / "server_linux_amd64"
 
 
-def run_client(peer_addr, local_kcptun_port=8080, key: str = "mysecret"):
+def run_kcptun_client(
+    peer_addr, local_kcptun_port=8080, key: str = "mysecret"
+) -> subprocess.Popen:
     peer_host, peer_port = peer_addr
     cmd = [
         kcptun_client_path,
@@ -18,12 +20,12 @@ def run_client(peer_addr, local_kcptun_port=8080, key: str = "mysecret"):
         # key,
     ]
     print(cmd)
-    subprocess.run(cmd)
+    return subprocess.Popen(cmd)
 
 
-def run_server(
+def run_kcptun_server(
     target_addr=("127.0.0.1", 22), listening_port=5050, key: str = "mysecret"
-):
+) -> subprocess.Popen:
     target_host, target_port = target_addr
     cmd = [
         kcptun_server_path,
@@ -35,7 +37,7 @@ def run_server(
         # key,
     ]
     print(cmd)
-    subprocess.run(cmd)
+    return subprocess.Popen(cmd)
 
 
 # sudo ./server_linux_amd64 -l :50 -t 127.0.0.1:22 --key "mysecret
