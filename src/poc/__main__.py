@@ -34,7 +34,6 @@ if __name__ == "__main__":
             myname,
             server_addr,
             local_udp_port,
-            client_kcptun_port_listen,
             not args.no_automatic_ssh,
         )
     elif server_or_client == "server":

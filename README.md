@@ -44,8 +44,6 @@ For additional info run
 
 ```bash
 doit help poc_server
-```
-
-```bash
 doit help poc_client
+doit help run_ssh_command
 ```

@@ -2,8 +2,9 @@ import os
 import getpass
 from pathlib import Path
 from dotenv import load_dotenv
+from doit.exceptions import TaskError
 
-from src.poc.utils import run_client, run_server
+from src.poc.utils import run_client, run_server, run_ssh_command
 
 load_dotenv()
 
@@ -17,6 +18,37 @@ DOIT_CONFIG = {
     "verbosity": 2,
     "default_tasks": [],
 }
+
+
+def task_run_ssh_command():
+    def run_ssh_command_wrapper(peer_name, local_udp_port):
+        if peer_name is None:
+            raise TaskError(
+                "You need to provide peer name via peer-name flag (-n piotrek)"
+            )
+        run_ssh_command(peer_name, local_udp_port)
+
+    return {
+        "actions": [(run_ssh_command_wrapper,)],
+        "params": [
+            {
+                "name": "peer_name",
+                "long": "peer-name",
+                "short": "n",
+                "type": str,
+                "default": None,
+                "help": "Peer user name",
+            },
+            {
+                "name": "local_udp_port",
+                "long": "local-port",
+                "short": "p",
+                "type": int,
+                "default": DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE,
+                "help": "Local port for KCPTun client to listen on",
+            },
+        ],
+    }
 
 
 def task_poc_client():
@@ -133,7 +165,7 @@ def task_poc_server():
                 "short": "p",
                 "type": int,
                 "default": DEFAULT_LOCAL_PORT_FOR_SRV_MODE,
-                "help": "Local port for KCPTun client to listen on",
+                "help": "Local port for KCPTun server to listen on",
             },
         ],
         "uptodate": [False],
