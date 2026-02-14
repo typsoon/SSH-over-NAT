@@ -23,18 +23,30 @@ DOIT_CONFIG = {
 def task_poc_client():
     """Run the client-side NAT traversal."""
     myname = "__cli"
+
+    def run_client_wrapper(no_automatic_ssh):
+        # Invert the flag because run_client expects 'automatic_ssh' (True/False)
+        automatic_ssh = not no_automatic_ssh
+
+        print(f"DEBUG: Running client with automatic_ssh={automatic_ssh}")
+
+        run_client(
+            myname,
+            server_addr,
+            poc_client_listen_port,
+            automatic_ssh,
+        )
+
     return {
-        "actions": [
-            (
-                run_client,
-                [
-                    myname,
-                    server_addr,
-                    poc_client_listen_port,
-                    poc_client_listen_port,
-                    True,
-                ],
-            )
+        "actions": [(run_client_wrapper,)],
+        "params": [
+            {
+                "name": "no_automatic_ssh",
+                "long": "no-automatic-ssh",  # The flag name: --no-automatic-ssh
+                "type": bool,  # It's a boolean flag
+                "default": False,  # Default is False (so SSH happens)
+                "help": "Disable automatic SSH connection after NAT traversal",
+            }
         ],
         # 'uptodate': [False] ensures the task always runs even if nothing changed
         "uptodate": [False],

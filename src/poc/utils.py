@@ -55,9 +55,7 @@ def run_ssh_command(user, client_kcptun_port_listen):
     subprocess.run(cmd)
 
 
-def run_client(
-    myname, server_addr, local_udp_port, client_kcptun_port_listen, automatic_ssh
-):
+def run_client(myname, server_addr, local_udp_port, automatic_ssh):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind(
             ("", local_udp_port)
@@ -70,10 +68,11 @@ def run_client(
 
         print("Peer:", peer_name, peer_addr)
 
-        with run_kcptun_client(peer_addr, local_kcptun_port=client_kcptun_port_listen):
+        with run_kcptun_client(peer_addr, local_kcptun_port=local_udp_port):
             print("KCPTUN was run")
+
             if automatic_ssh:
-                run_ssh_command(peer_name, client_kcptun_port_listen)
+                run_ssh_command(peer_name, local_udp_port)
 
 
 def run_server(myname, server_addr, listening_port: int):
