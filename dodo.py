@@ -6,34 +6,37 @@ from dotenv import load_dotenv
 from src.poc.utils import run_client, run_server
 
 load_dotenv()
-remote_ipaddr = os.getenv("REMOTE_SERVER_IP")
-remote_udp_port = int(os.getenv("REMOTE_UDP_PORT", 50))  # Cast to Int!
 
-server_addr = (remote_ipaddr, remote_udp_port)
-
-poc_server_port = 8025
-poc_client_listen_port = 8022
+# Global Defaults (Fallback if not provided via CLI)
+DEFAULT_SERVER_IP = os.getenv("REMOTE_SERVER_IP", "127.0.0.1")
+DEFAULT_SERVER_PORT = int(os.getenv("REMOTE_UDP_PORT", 50))
+DEFAULT_LOCAL_PORT_FOR_SRV_MODE = 8025
+DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE = 8022
 
 DOIT_CONFIG = {
     "verbosity": 2,
-    "default_tasks": [],  # Optional: Prevent running everything by default
+    "default_tasks": [],
 }
 
 
 def task_poc_client():
     """Run the client-side NAT traversal."""
-    myname = "__cli"
 
-    def run_client_wrapper(no_automatic_ssh):
-        # Invert the flag because run_client expects 'automatic_ssh' (True/False)
+    # 1. Wrapper to handle all the params
+    def run_client_wrapper(
+        myname, server_ip, server_port, local_udp_port, no_automatic_ssh
+    ):
         automatic_ssh = not no_automatic_ssh
+        server_addr = (server_ip, server_port)
 
-        print(f"DEBUG: Running client with automatic_ssh={automatic_ssh}")
+        print(
+            f"DEBUG: Connecting as '{myname}' to {server_addr} | Listen Port: {local_udp_port}"
+        )
 
         run_client(
             myname,
             server_addr,
-            poc_client_listen_port,
+            local_udp_port,
             automatic_ssh,
         )
 
@@ -41,23 +44,97 @@ def task_poc_client():
         "actions": [(run_client_wrapper,)],
         "params": [
             {
+                "name": "myname",
+                "long": "name",
+                "short": "n",
+                "type": str,
+                "default": "__cli",
+                "help": "Client identifier/nickname",
+            },
+            {
+                "name": "server_ip",
+                "long": "server-ip",
+                "short": "ip",
+                "type": str,
+                "default": DEFAULT_SERVER_IP,
+                "help": "Remote VPS IP address",
+            },
+            {
+                "name": "server_port",
+                "long": "server-port",
+                "short": "srvprt",
+                "type": int,
+                "default": DEFAULT_SERVER_PORT,
+                "help": "Remote VPS UDP port",
+            },
+            {
+                "name": "local_udp_port",
+                "long": "local-port",
+                "short": "p",
+                "type": int,
+                "default": DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE,
+                "help": "Local port for KCPTun client to listen on",
+            },
+            {
                 "name": "no_automatic_ssh",
-                "long": "no-automatic-ssh",  # The flag name: --no-automatic-ssh
-                "type": bool,  # It's a boolean flag
-                "default": False,  # Default is False (so SSH happens)
-                "help": "Disable automatic SSH connection after NAT traversal",
-            }
+                "long": "no-automatic-ssh",
+                "type": bool,
+                "default": False,
+                "help": "Disable automatic SSH connection",
+            },
         ],
-        # 'uptodate': [False] ensures the task always runs even if nothing changed
         "uptodate": [False],
     }
 
 
 def task_poc_server():
-    # print(myname)
     """Run the server-side NAT traversal."""
-    myname = getpass.getuser()
+
+    # 1. Wrapper for server params
+    def run_server_wrapper(myname, server_ip, server_port, local_udp_port):
+        server_addr = (server_ip, server_port)
+
+        print(
+            f"DEBUG: Registering '{myname}' with {server_addr} | Local Bind: {local_udp_port}"
+        )
+
+        run_server(myname, server_addr, local_udp_port)
+
     return {
-        "actions": [(run_server, [myname, server_addr, poc_server_port])],
+        "actions": [(run_server_wrapper,)],
+        "params": [
+            {
+                "name": "myname",
+                "long": "name",
+                "short": "n",
+                "type": str,
+                "default": getpass.getuser(),
+                "help": "Server identifier/nickname",
+            },
+            {
+                "name": "server_ip",
+                "long": "server-ip",
+                "short": "srvip",
+                "type": str,
+                "default": DEFAULT_SERVER_IP,
+                "help": "Server VPS IP address",
+            },
+            {
+                "name": "server_port",
+                "long": "server-port",
+                "short": "srvp",
+                "type": int,
+                "default": DEFAULT_SERVER_PORT,
+                "help": "Local UDP port to bind for NAT hole punching",
+            },
+            {
+                "name": "local_udp_port",
+                "long": "local-port",
+                "short": "p",
+                "type": int,
+                "default": DEFAULT_LOCAL_PORT_FOR_SRV_MODE,
+                "help": "Local port for KCPTun client to listen on",
+            },
+        ],
         "uptodate": [False],
     }
