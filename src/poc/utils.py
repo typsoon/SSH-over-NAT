@@ -257,184 +257,91 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
 
 
 def run_server(myname, server_addr, listening_port: int):
-
     while True: # Zewnętrzna pętla maszyny stanów
-
         print(f"\n[STAN: LISTEN] Nasłuchuję na porcie {listening_port}...")
-
         peer_name = None
 
-
-
         # --- FAZA 1: Podtrzymanie (Heartbeat) i nasłuchiwanie ---
-
         while True:
-
             try:
-
                 # 1. Pobieramy publiczne IP dla naszego lokalnego portu
-
                 _, ext_ip, ext_port = get_ip_info('0.0.0.0', listening_port, 'stun.l.google.com', 19302)
-
-               
-
+                
                 # 2. Rejestrujemy się w bazie PHP na AWS
-
                 payload = {"user": myname, "ip": ext_ip, "port": ext_port}
-
                 res = requests.post(PHP_RENDEZVOUS_URL, json=payload, timeout=5).json()
-
-               
-
+                
                 # 3. Sprawdzamy, czy PHP znalazło dla nas klienta
-
                 if res.get("status") == "ok":
-
                     peer_name = res["peername"]
-
                     print(f"!!! ZNALEZIONO KLIENTA !!! -> {peer_name}")
-
-                    break # Wychodzimy z nasłuchiwania, przechodzimy do odpalenia KCPTun
-
+                    break 
                 else:
-
                     print(f"[{time.strftime('%H:%M:%S')}] Heartbeat OK (Mój publiczny port: {ext_port}). Czekam na klienta...")
-
-               
-
+                
             except Exception as e:
-
                 print(f"Błąd komunikacji STUN/PHP: {e}")
-
-           
-
-            # Czekamy 30 sekund przed kolejnym puknięciem (podtrzymuje dziurę w NAT)
-
+            
             time.sleep(30)
 
-
-
         # --- FAZA 2: KCPTun i Monitorowanie Ruchu ---
-
         print(f"\n[STAN: CONNECTED] Łączę z {peer_name}. Odpalam KCPTun...")
-
-       
-
-        # Uruchamiamy KCPTun Server z Twojej funkcji (zwraca obiekt Popen)
-
+        
+        # Uruchamiamy KCPTun Server
         proc = run_kcptun_server(listening_port=listening_port)
-
-       
-
+        
         try:
-
-            # Podpinamy się pod proces KCPTun, żeby śledzić pakiety
-
             kcptun_ps = psutil.Process(proc.pid)
-
+            
+            # POPRAWKA: Używamy .chars zamiast .bytes, aby widzieć ruch sieciowy (Unix)
             io_start = kcptun_ps.io_counters()
-
-            last_bytes = io_start.read_bytes + io_start.write_bytes
-
-           
-
+            last_activity = io_start.read_chars + io_start.write_chars
+            
             idle_timer = 0
-
-           
-
+            check_interval = 10 
+            
             while True:
-
-                time.sleep(10) # Sprawdzamy statystyki co 10 sekund
-
-               
-
-                # Zabezpieczenie: jeśli KCPTun sam z siebie "scrashował"
-
+                time.sleep(check_interval)
+                
                 if proc.poll() is not None:
-
                     print("\nBŁĄD: Proces KCPTun zamknął się niespodziewanie!")
-
                     break
-
-
 
                 try:
-
                     io_current = kcptun_ps.io_counters()
+                    # Sumujemy "chars" - to raportuje aktywność na deskryptorach (sockety)
+                    current_activity = io_current.read_chars + io_current.write_chars
+                    
+                    # Dodatkowa weryfikacja: czy proces ma otwarte jakiekolwiek połączenie UDP?
+                    has_network_sockets = len(kcptun_ps.connections(kind='udp')) > 0
 
-                    current_bytes = io_current.read_bytes + io_current.write_bytes
-
-                   
-
-                    if current_bytes == last_bytes:
-
-                        idle_timer += 10
-
-                        print(f"Brak ruchu od {idle_timer}s...")
-
+                    if current_activity == last_activity or not has_network_sockets:
+                        idle_timer += check_interval
+                        if idle_timer % 30 == 0: # Loguj co 30s żeby nie śmiecić
+                            print(f"Brak realnego ruchu od {idle_timer}s...")
                     else:
-
                         if idle_timer > 0:
-
-                            print("Wykryto ruch w KCPTun. Resetuję licznik bezczynności.")
-
+                            print(f"Wykryto aktywność ({current_activity - last_activity} chars). Reset licznika.")
                         idle_timer = 0
-
-                        last_bytes = current_bytes
-
-
-
-                    # Jeśli przekroczono czas bezruchu (np. 5 minut)
+                        last_activity = current_activity
 
                     if idle_timer >= TIMEOUT_IDLE_SECONDS:
-
                         print(f"\n[TIMEOUT] Brak transferu przez {TIMEOUT_IDLE_SECONDS}s. Zamykam sesję.")
-
-                        break # Wychodzimy z pętli monitorowania
-
-
+                        break
 
                 except psutil.NoSuchProcess:
-
-                    print("\nBŁĄD: Proces KCPTun zniknął w trakcie monitorowania.")
-
+                    print("\nBŁĄD: Proces KCPTun zniknął.")
                     break
-
-                   
-
+                    
         finally:
-
-            # --- FAZA 3: Cleanup (Sprzątanie) ---
-
-            # Wykona się zawsze, gdy wyjdziemy z powyższej pętli
-
+            # --- FAZA 3: Cleanup ---
             print(f"\n[STAN: CLEANUP] Zabijam proces KCPTun (PID: {proc.pid})...")
-
-           
-
-            proc.terminate() # Prośba o grzeczne wyłączenie
-
+            
+            proc.terminate()
             try:
-
                 proc.wait(timeout=3)
-
-            except subprocess.TimeoutExpired:
-
-                proc.kill() # Brutalne zabicie, jeśli nie posłuchał
-
-           
-
-            print("Port lokalny zwolniony. Daję systemowi odetchnąć...")
-
-            time.sleep(3) # Ważne: dajemy routerowi i systemowi operacyjnemu czas na zresetowanie gniazda
-
-            # Pętla wraca na samą górę do STAN: LISTEN
-
-
-
-
-
-# program zostaje uruchomiony w tle — możesz ctrl+c żeby przerwać
-
-
-
+            except Exception:
+                proc.kill()
+            
+            print("Port lokalny zwolniony. Powrót do nasłuchiwania...")
+            time.sleep(3)
