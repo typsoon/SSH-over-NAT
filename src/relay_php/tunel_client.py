@@ -4,43 +4,50 @@ import time
 import requests
 import base64
 
-RELAY_URL = "http://16.171.4.247/relay.php"  # <--- PODMIEŃ
+RELAY_URL = "http://16.171.4.247/relay.php"
 LISTEN_PORT = 2222
 
-session = requests.Session()
+session_tx = requests.Session()
+session_rx = requests.Session()
+tx_seq = 0 
 
-def send_to_relay(channel, data):
-    # DEBUG PRINT
-    print(f"[DEBUG WYSYŁAM -> {channel}] {len(data)} bajtów | Podgląd: {repr(data[:50])}")
+def send_chunk(channel, data):
+    global tx_seq
+    tx_seq += 1
+    local_seq = tx_seq
     
     b64_data = base64.b64encode(data).decode('utf-8')
+    url = f"{RELAY_URL}?action=send&channel={channel}&seq={local_seq}"
+    
+    # Retry loop - próbujemy do skutku, ale z małym oddechem
     while True:
         try:
-            res = session.post(f"{RELAY_URL}?action=send&channel={channel}", data=b64_data, timeout=5)
+            res = session_tx.post(url, data=b64_data, timeout=4)
             if res.status_code == 200 and "OK" in res.text:
-                break
-            else:
-                print(f"[!] Błąd POST: {res.status_code} | {res.text[:30]}")
-                time.sleep(1)
-        except Exception as e:
-            print(f"[!] Błąd sieci (wysyłanie): {e}")
-            time.sleep(1)
+                time.sleep(0.01) # ODDECH DLA SERWERA
+                return
+        except:
+            pass
+        # Jak błąd, czekamy chwilę dłużej żeby sieć wstała
+        time.sleep(0.2)
+
+def send_to_relay(channel, data):
+    # Dzielimy duże pakiety (np. wklejenie tekstu) na kawałki max 2KB
+    # To zapobiega zapchaniu się PHP przy dużej ilości danych
+    CHUNK_SIZE = 2048
+    for i in range(0, len(data), CHUNK_SIZE):
+        chunk = data[i:i+CHUNK_SIZE]
+        send_chunk(channel, chunk)
 
 def recv_from_relay(channel):
     try:
-        res = session.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=5)
-        if res.status_code == 200 and "[[[" in res.text and "]]]" in res.text:
-            b64_data = res.text.split('[[[')[1].split(']]]')[0]
-            decoded = base64.b64decode(b64_data)
-            
-            # DEBUG PRINT
-            if len(decoded) > 0:
-                print(f"[DEBUG ODBIERAM <- {channel}] {len(decoded)} bajtów | Podgląd: {repr(decoded[:50])}")
-                
+        res = session_rx.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=4)
+        if res.status_code == 200 and "[[[" in res.text:
+            raw = res.text.split('[[[')[1].split(']]]')[0]
+            decoded = base64.b64decode(raw)
             return decoded
-    except Exception as e:
-        print(f"[!] Błąd sieci (odbiór): {e}")
-        time.sleep(1)
+    except:
+        time.sleep(0.1)
     return b""
 
 def local_to_http(sock):
@@ -49,8 +56,7 @@ def local_to_http(sock):
             data = sock.recv(4096)
             if not data: break
             send_to_relay('c2s', data)
-        except Exception as e:
-            print(f"[-] Czytanie z terminala przerwane: {e}")
+        except:
             break
 
 def http_to_local(sock):
@@ -59,31 +65,32 @@ def http_to_local(sock):
         if data:
             try:
                 sock.sendall(data)
-            except Exception as e:
-                print(f"[-] Wypisywanie do terminala przerwane: {e}")
+            except:
                 break
         else:
-            time.sleep(0.3)
+            # Ważne: Sleep nawet jak pusto, żeby nie palić CPU
+            time.sleep(0.02) 
 
 def start_client():
+    global tx_seq
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     server.bind(('127.0.0.1', LISTEN_PORT))
     server.listen(1)
     
-    print(f"[*] Cebula-Relay Klient (Tryb DEBUG) gotowy!")
-    print(f"[*] Czekam na połączenie pod: ssh nazwa@127.0.0.1 -p {LISTEN_PORT}")
+    print(f"[*] Cebula-Relay Klient (STABLE) gotowy!")
     
     while True:
         sock, addr = server.accept()
-        print(f"\n[+] Połączono z terminalem: {addr}")
+        print(f"\n[+] Połączono: {addr}")
         
-        try:
-            session.get(f"{RELAY_URL}?action=recv&channel=c2s", timeout=3)
-            session.get(f"{RELAY_URL}?action=recv&channel=s2c", timeout=3)
-        except:
-            pass
+        try: 
+            session_tx.get(f"{RELAY_URL}?action=reset", timeout=3)
+            time.sleep(0.5)
+        except: pass
         
+        tx_seq = 0
         send_to_relay('c2s', b"---NEW_SSH_SESSION---")
         
         t1 = threading.Thread(target=local_to_http, args=(sock,), daemon=True)
