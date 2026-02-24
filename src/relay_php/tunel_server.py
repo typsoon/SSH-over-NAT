@@ -21,23 +21,21 @@ def send_chunk(channel, data):
     
     while True:
         try:
-            res = session_tx.post(url, data=b64_data, timeout=4)
+            res = session_tx.post(url, data=b64_data, timeout=5)
             if res.status_code == 200 and "OK" in res.text:
-                time.sleep(0.01) # ODDECH
                 return
         except:
             pass
-        time.sleep(0.2)
+        time.sleep(0.5)
 
-def send_to_relay(channel, data):
-    CHUNK_SIZE = 2048
+def send_to_relay_buffered(channel, data):
+    CHUNK_SIZE = 4096
     for i in range(0, len(data), CHUNK_SIZE):
-        chunk = data[i:i+CHUNK_SIZE]
-        send_chunk(channel, chunk)
+        send_chunk(channel, data[i:i+CHUNK_SIZE])
 
 def recv_from_relay(channel):
     try:
-        res = session_rx.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=4)
+        res = session_rx.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=5)
         if res.status_code == 200 and "[[[" in res.text:
             raw = res.text.split('[[[')[1].split(']]]')[0]
             decoded = base64.b64decode(raw)
@@ -47,19 +45,37 @@ def recv_from_relay(channel):
     return b""
 
 def ssh_to_http(sock):
+    sock.settimeout(0.05)
     while True:
         try:
-            data = sock.recv(4096)
-            if not data: break
-            send_to_relay('s2c', data)
-        except:
+            # --- BUFOROWANIE ---
+            buffer = []
+            total_len = 0
+            start_time = time.time()
+            
+            while time.time() - start_time < 0.05 and total_len < 4096:
+                try:
+                    chunk = sock.recv(4096)
+                    if not chunk: return
+                    buffer.append(chunk)
+                    total_len += len(chunk)
+                except socket.timeout:
+                    break
+                except Exception:
+                    return
+
+            if buffer:
+                full_data = b"".join(buffer)
+                send_to_relay_buffered('s2c', full_data)
+                
+        except Exception:
             break
     try: sock.close()
     except: pass
 
 def main_loop():
     global current_sock, tx_seq
-    print(f"[*] Cebula-Relay Serwer (STABLE) gotowy.")
+    print(f"[*] Cebula-Relay Serwer (BUFFERED) gotowy.")
     
     while True:
         data = recv_from_relay('c2s')
@@ -90,7 +106,7 @@ def main_loop():
                     try: current_sock.sendall(data)
                     except: pass
         else:
-            time.sleep(0.02) # Minimalny sleep zawsze
+            time.sleep(0.05)
 
 if __name__ == "__main__":
     main_loop()

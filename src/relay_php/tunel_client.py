@@ -19,29 +19,25 @@ def send_chunk(channel, data):
     b64_data = base64.b64encode(data).decode('utf-8')
     url = f"{RELAY_URL}?action=send&channel={channel}&seq={local_seq}"
     
-    # Retry loop - próbujemy do skutku, ale z małym oddechem
+    # Próbujemy do skutku, ale z przerwami, żeby nie zabić serwera
     while True:
         try:
-            res = session_tx.post(url, data=b64_data, timeout=4)
+            res = session_tx.post(url, data=b64_data, timeout=5)
             if res.status_code == 200 and "OK" in res.text:
-                time.sleep(0.01) # ODDECH DLA SERWERA
                 return
         except:
             pass
-        # Jak błąd, czekamy chwilę dłużej żeby sieć wstała
-        time.sleep(0.2)
+        time.sleep(0.5)
 
-def send_to_relay(channel, data):
-    # Dzielimy duże pakiety (np. wklejenie tekstu) na kawałki max 2KB
-    # To zapobiega zapchaniu się PHP przy dużej ilości danych
-    CHUNK_SIZE = 2048
+def send_to_relay_buffered(channel, data):
+    # Dzielimy na max 4KB, jeśli paczka jest gigantyczna
+    CHUNK_SIZE = 4096
     for i in range(0, len(data), CHUNK_SIZE):
-        chunk = data[i:i+CHUNK_SIZE]
-        send_chunk(channel, chunk)
+        send_chunk(channel, data[i:i+CHUNK_SIZE])
 
 def recv_from_relay(channel):
     try:
-        res = session_rx.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=4)
+        res = session_rx.get(f"{RELAY_URL}?action=recv&channel={channel}", timeout=5)
         if res.status_code == 200 and "[[[" in res.text:
             raw = res.text.split('[[[')[1].split(']]]')[0]
             decoded = base64.b64decode(raw)
@@ -51,12 +47,35 @@ def recv_from_relay(channel):
     return b""
 
 def local_to_http(sock):
+    sock.settimeout(0.05) # Bardzo krótki timeout do zbierania danych
     while True:
         try:
-            data = sock.recv(4096)
-            if not data: break
-            send_to_relay('c2s', data)
-        except:
+            # --- BUFOROWANIE ---
+            # Zbieramy dane przez max 50ms albo do uzbierania 4KB
+            buffer = []
+            total_len = 0
+            start_time = time.time()
+            
+            while time.time() - start_time < 0.05 and total_len < 4096:
+                try:
+                    chunk = sock.recv(4096)
+                    if not chunk: 
+                        # Socket zamknięty
+                        return 
+                    buffer.append(chunk)
+                    total_len += len(chunk)
+                except socket.timeout:
+                    # Brak więcej danych w tej chwili, wychodzimy z pętli zbierania
+                    break
+                except Exception:
+                    return
+
+            if buffer:
+                # Sklejamy kawałki w jedną całość i wysyłamy RAZ
+                full_data = b"".join(buffer)
+                send_to_relay_buffered('c2s', full_data)
+            
+        except Exception:
             break
 
 def http_to_local(sock):
@@ -68,30 +87,30 @@ def http_to_local(sock):
             except:
                 break
         else:
-            # Ważne: Sleep nawet jak pusto, żeby nie palić CPU
-            time.sleep(0.02) 
+            time.sleep(0.05)
 
 def start_client():
     global tx_seq
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    # Nagle off, my robimy własny buforing
+    server.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) 
     server.bind(('127.0.0.1', LISTEN_PORT))
     server.listen(1)
     
-    print(f"[*] Cebula-Relay Klient (STABLE) gotowy!")
+    print(f"[*] Cebula-Relay Klient (BUFFERED) gotowy!")
     
     while True:
         sock, addr = server.accept()
         print(f"\n[+] Połączono: {addr}")
         
         try: 
-            session_tx.get(f"{RELAY_URL}?action=reset", timeout=3)
+            session_tx.get(f"{RELAY_URL}?action=reset", timeout=4)
             time.sleep(0.5)
         except: pass
         
         tx_seq = 0
-        send_to_relay('c2s', b"---NEW_SSH_SESSION---")
+        send_to_relay_buffered('c2s', b"---NEW_SSH_SESSION---")
         
         t1 = threading.Thread(target=local_to_http, args=(sock,), daemon=True)
         t2 = threading.Thread(target=http_to_local, args=(sock,), daemon=True)
