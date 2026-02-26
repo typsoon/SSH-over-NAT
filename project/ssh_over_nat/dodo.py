@@ -1,9 +1,17 @@
-from ssh_over_nat.common import config, DefaultKeys as K
+from pathlib import Path
+from ssh_over_nat.common import (
+    config,
+    APP_NAME,
+    get_app_cache_dir,
+    DefaultKeys as K,
+)
 from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
+
 
 DOIT_CONFIG = {
     "verbosity": 2,
     "default_tasks": [],
+    "dep_file": Path(get_app_cache_dir(APP_NAME)) / ".doit.db",
 }
 
 
@@ -43,7 +51,7 @@ def task_run_ssh_command():
 
 
 def get_unset_str(name):
-    return f"Default value for {name} not set. Run ssh_over_nat environment -a set -k {name} -v value"
+    return f"Default value for {name} not set. Run {APP_NAME} environment -a set -k {name} -v value"
 
 
 def task_poc_client():
@@ -193,7 +201,7 @@ def task_poc_server():
     }
 
 
-environment_usage = "ssh_over_nat environment --action get|set --key key --value value"
+environment_usage = f"{APP_NAME} environment --action get|set --key key --value value"
 
 
 def task_environment():
