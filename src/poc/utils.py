@@ -97,7 +97,7 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
 
     print(f"Moje publiczne IP: {ext_ip}:{ext_port}")
 
-    payload = {"user": hash, "ip": ext_ip, "port": ext_port}
+    payload = {"hash": hash, "ip": ext_ip, "port": ext_port}
     peer_hash = None
     peer_addr = None
 
@@ -109,7 +109,7 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
             res = requests.post(PHP_RENDEZVOUS_URL, json=payload, timeout=5).json()
 
             if res.get("status") == "ok":
-                peer_hash = res["peername"]
+                peer_hash = res["peerhash"]
                 peer_addr = (res["ip"], int(res["port"]))
                 print(f"!!! ZNALEZIONO SERWER !!! -> {peer_hash}\n    (celuję w {peer_addr[0]}:{peer_addr[1]})")
                 break # Mamy IP serwera, idziemy dalej!
@@ -180,12 +180,12 @@ def run_server(hash, server_addr, listening_port: int):
                 _, ext_ip, ext_port = get_ip_info(source_port=listening_port, stun_host='stun.l.google.com', stun_port=19302)
 
                 # 2. Rejestrujemy się w bazie PHP na AWS
-                payload = {"user": hash, "ip": ext_ip, "port": ext_port}
+                payload = {"hash": hash, "ip": ext_ip, "port": ext_port}
                 res = requests.post(PHP_RENDEZVOUS_URL, json=payload, timeout=5).json()
 
                 # 3. Sprawdzamy, czy PHP znalazło dla nas klienta
                 if res.get("status") == "ok":
-                    peer_hash = res["peername"]
+                    peer_hash = res["peerhash"]
                     print(f"!!! ZNALEZIONO KLIENTA !!! -> {peer_hash}")
                     break 
                 else:
