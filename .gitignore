@@ -2,3 +2,5 @@
 .doit.db
 **/.doit.db*
 env
+**/*.egg-info/
+build/**

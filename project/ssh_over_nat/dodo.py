@@ -1,10 +1,7 @@
 import os
-import getpass
-from pathlib import Path
 from dotenv import load_dotenv
-from doit.exceptions import TaskError
 
-from src.poc.utils import run_client, run_server, run_ssh_command
+from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
 
 load_dotenv()
 
@@ -59,30 +56,22 @@ def task_poc_client():
     """Run the client-side NAT traversal."""
 
     # 1. Wrapper to handle all the params
-    def run_client_wrapper(
-        hash, server_ip, server_port, local_udp_port, username
-    ):
+    def run_client_wrapper(hash, server_ip, server_port, local_udp_port, username):
         if hash is None:
             print("Hash ( -h ) is required")
             return
             # raise TaskError(
             #     "Hash ( -h ) is required"
             # )
-        
-        automatic_ssh = (username is not None)
+
+        automatic_ssh = username is not None
         server_addr = (server_ip, server_port)
 
         print(
             f"DEBUG: Querying '{hash}' at {server_addr} | Local Port: {local_udp_port}"
         )
 
-        run_client(
-            hash,
-            server_addr,
-            local_udp_port,
-            automatic_ssh,
-            username
-        )
+        run_client(hash, server_addr, local_udp_port, automatic_ssh, username)
 
     return {
         "actions": [(run_client_wrapper,)],
@@ -143,7 +132,7 @@ def task_poc_server():
             # raise TaskError(
             #     "Hash ( -h ) is required"
             # )
-        
+
         server_addr = (server_ip, server_port)
 
         print(

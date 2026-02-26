@@ -4,17 +4,17 @@ Challenge is to do achieve something like what you can see in `/archive` folder,
 
 ## How to use
 
-### Prerequisites
+- Rendezvous server running apache2 with index.php and relay.php uploaded to it
 
-- pydoit installed, python-dotenv installed.
+## Installation
 
-On ubuntu
+### Locally via pip
 
-```bash
-sudo apt install python3-doit
+At project root run
+
+```python
+python -m pip install .
 ```
-
-- Rendezvous server running rendezvous.py.
 
 ### How to run it?
 
@@ -29,13 +29,13 @@ Then
 - server
 
 ```bash
-doit poc_server
+ssh-over-nat poc_server
 ```
 
 - client
 
 ```bash
-doit poc_client
+ssh-over-nat poc_client
 ```
 
 ## Advanced usage
@@ -43,7 +43,7 @@ doit poc_client
 For additional info run
 
 ```bash
-doit help poc_server
-doit help poc_client
-doit help run_ssh_command
+ssh-over-nat help poc_server
+ssh-over-nat help poc_client
+ssh-over-nat help run_ssh_command
 ```

@@ -2,7 +2,11 @@ from pathlib import Path
 
 import psutil
 
-kcptun_dir_path = Path(__file__).parents[2].resolve() / "kcptun"
+kcptun_dir_path = Path(__file__).parents[1].resolve() / "kcptun_bin"
+
+if not kcptun_dir_path.exists():
+    raise RuntimeError(f"Kcptun binaries folder not found under {kcptun_dir_path}")
+
 kcptun_client_path = kcptun_dir_path / "client_linux_amd64"
 kcptun_server_path = kcptun_dir_path / "server_linux_amd64"
 
