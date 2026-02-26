@@ -2,7 +2,7 @@ from pathlib import Path
 
 import psutil
 
-from project.ssh_over_nat.common import LOCALHOST, SSH_PORT
+from ..common import LOCALHOST, SSH_PORT
 
 kcptun_dir_path = Path(__file__).parents[1].resolve() / "kcptun_bin"
 

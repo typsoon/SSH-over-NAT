@@ -6,7 +6,7 @@ import time
 import requests
 import psutil
 
-from stun import get_ip_info
+from .._vendor.stun import get_ip_info
 from ..common import LOCALHOST, PHP_RENDEZVOUS_URL_FMSTR
 
 from ..relay_php import start_relay_client, start_relay_server
@@ -17,6 +17,8 @@ TIMEOUT_IDLE_SECONDS = 300
 SSH_TIMEOUT = 4
 
 KCPTUN_WARMUP = 2
+
+STUN_PORT = 19302
 
 
 def end_proc(proc):
@@ -95,7 +97,7 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
     try:
         # Odpytujemy STUN, żeby otworzyć "dziurę" w NAT u klienta
         _, ext_ip, ext_port = get_ip_info(
-            "0.0.0.0", local_udp_port, "stun.l.google.com", 19302
+            "0.0.0.0", local_udp_port, "stun.l.google.com", STUN_PORT
         )
     except Exception as e:
         print(f"Błąd STUN: {e}")
@@ -195,7 +197,7 @@ def run_server(hash, server_addr, listening_port: int):
                 _, ext_ip, ext_port = get_ip_info(
                     source_port=listening_port,
                     stun_host="stun.l.google.com",
-                    stun_port=19302,
+                    stun_port=STUN_PORT,
                 )
 
                 # 2. Rejestrujemy się w bazie PHP na AWS

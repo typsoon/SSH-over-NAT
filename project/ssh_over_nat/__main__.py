@@ -17,7 +17,9 @@ def main():
 
     os.environ["PYTHONPYCACHEPREFIX"] = os.path.join(cache_dir, "pycache")
 
-    cmd = [sys.executable, "-m", "doit", "-f", dodo_path, *sys.argv[1:]]
+    args = sys.argv[1:] if len(sys.argv) > 1 else ["help"]
+
+    cmd = [sys.executable, "-m", "doit", "-f", dodo_path, *args]
     return subprocess.run(cmd).returncode
 
 
