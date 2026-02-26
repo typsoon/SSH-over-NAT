@@ -21,23 +21,27 @@ DOIT_CONFIG = {
 
 
 def task_run_ssh_command():
-    def run_ssh_command_wrapper(peer_name, local_udp_port):
-        if peer_name is None:
-            raise TaskError(
-                "You need to provide peer name via peer-name flag (-n piotrek)"
-            )
-        run_ssh_command(peer_name, local_udp_port)
+    """SSH via tunnel"""
+
+    def run_ssh_command_wrapper(username, local_udp_port):
+        if username is None:
+            print("Username ( -u ) is necessary to connect")
+            return
+            # raise TaskError(
+            #     "Username ( -u ) is necessary to connect"
+            # )
+        run_ssh_command(username, local_udp_port)
 
     return {
         "actions": [(run_ssh_command_wrapper,)],
         "params": [
             {
-                "name": "peer_name",
-                "long": "peer-name",
-                "short": "n",
+                "name": "username",
+                "long": "username",
+                "short": "u",
                 "type": str,
                 "default": None,
-                "help": "Peer user name",
+                "help": "Username you want to log in to on the server machine",
             },
             {
                 "name": "local_udp_port",
@@ -45,7 +49,7 @@ def task_run_ssh_command():
                 "short": "p",
                 "type": int,
                 "default": DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE,
-                "help": "Local port for KCPTun client to listen on",
+                "help": "Local tunnel entry port (the one KCPTun is listening on)",
             },
         ],
     }
@@ -56,37 +60,45 @@ def task_poc_client():
 
     # 1. Wrapper to handle all the params
     def run_client_wrapper(
-        myname, server_ip, server_port, local_udp_port, no_automatic_ssh
+        hash, server_ip, server_port, local_udp_port, username
     ):
-        automatic_ssh = not no_automatic_ssh
+        if hash is None:
+            print("Hash ( -h ) is required")
+            return
+            # raise TaskError(
+            #     "Hash ( -h ) is required"
+            # )
+        
+        automatic_ssh = (username is not None)
         server_addr = (server_ip, server_port)
 
         print(
-            f"DEBUG: Connecting as '{myname}' to {server_addr} | Listen Port: {local_udp_port}"
+            f"DEBUG: Querying '{hash}' at {server_addr} | Local Port: {local_udp_port}"
         )
 
         run_client(
-            myname,
+            hash,
             server_addr,
             local_udp_port,
             automatic_ssh,
+            username
         )
 
     return {
         "actions": [(run_client_wrapper,)],
         "params": [
             {
-                "name": "myname",
-                "long": "name",
-                "short": "n",
+                "name": "hash",
+                "long": "hash",
+                "short": "h",
                 "type": str,
-                "default": "__cli",
-                "help": "Client identifier/nickname",
+                "default": None,
+                "help": "Hash of the server you're trying to connect to [necessary]",
             },
             {
                 "name": "server_ip",
                 "long": "server-ip",
-                "short": "ip",
+                "short": "srvip",
                 "type": str,
                 "default": DEFAULT_SERVER_IP,
                 "help": "Remote VPS IP address",
@@ -97,7 +109,7 @@ def task_poc_client():
                 "short": "srvprt",
                 "type": int,
                 "default": DEFAULT_SERVER_PORT,
-                "help": "Remote VPS UDP port",
+                "help": "Remote VPS port",
             },
             {
                 "name": "local_udp_port",
@@ -108,11 +120,12 @@ def task_poc_client():
                 "help": "Local port for KCPTun client to listen on",
             },
             {
-                "name": "no_automatic_ssh",
-                "long": "no-automatic-ssh",
-                "type": bool,
-                "default": False,
-                "help": "Disable automatic SSH connection",
+                "name": "username",
+                "long": "username",
+                "short": "u",
+                "type": str,
+                "default": None,
+                "help": "Login you want to connect to [required for automatic SSH]",
             },
         ],
         "uptodate": [False],
@@ -123,25 +136,32 @@ def task_poc_server():
     """Run the server-side NAT traversal."""
 
     # 1. Wrapper for server params
-    def run_server_wrapper(myname, server_ip, server_port, local_udp_port):
+    def run_server_wrapper(hash, server_ip, server_port, local_udp_port):
+        if hash is None:
+            print("Hash ( -h ) is required")
+            return
+            # raise TaskError(
+            #     "Hash ( -h ) is required"
+            # )
+        
         server_addr = (server_ip, server_port)
 
         print(
-            f"DEBUG: Registering '{myname}' with {server_addr} | Local Bind: {local_udp_port}"
+            f"DEBUG: Registering '{hash}' with {server_addr} | Local Bind: {local_udp_port}"
         )
 
-        run_server(myname, server_addr, local_udp_port)
+        run_server(hash, server_addr, local_udp_port)
 
     return {
         "actions": [(run_server_wrapper,)],
         "params": [
             {
-                "name": "myname",
-                "long": "name",
-                "short": "n",
+                "name": "hash",
+                "long": "hash",
+                "short": "h",
                 "type": str,
-                "default": getpass.getuser(),
-                "help": "Server identifier/nickname",
+                "default": None,
+                "help": "Hash the server will be known as [necessary]",
             },
             {
                 "name": "server_ip",
@@ -149,15 +169,15 @@ def task_poc_server():
                 "short": "srvip",
                 "type": str,
                 "default": DEFAULT_SERVER_IP,
-                "help": "Server VPS IP address",
+                "help": "Remote VPS IP address",
             },
             {
                 "name": "server_port",
                 "long": "server-port",
-                "short": "srvp",
+                "short": "srvprt",
                 "type": int,
                 "default": DEFAULT_SERVER_PORT,
-                "help": "Local UDP port to bind for NAT hole punching",
+                "help": "Remote VPS port",
             },
             {
                 "name": "local_udp_port",
@@ -165,7 +185,7 @@ def task_poc_server():
                 "short": "p",
                 "type": int,
                 "default": DEFAULT_LOCAL_PORT_FOR_SRV_MODE,
-                "help": "Local port for KCPTun server to listen on",
+                "help": "Port used by KCPTun server [not important]",
             },
         ],
         "uptodate": [False],

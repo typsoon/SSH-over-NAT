@@ -82,10 +82,11 @@ def check_if_ssh_is_possible(user, client_kcptun_port_listen, timeout=SSH_TIMEOU
             return True
         return False
 
-def run_client(myname, server_addr, local_udp_port, automatic_ssh):
+
+def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
     PHP_RENDEZVOUS_URL = PHP_RENDEZVOUS_URL_FMSTR % server_addr[0]
 
-    print(f"\n[{myname}] Pobieram publiczne IP i Port ze STUN (dla portu {local_udp_port})...")
+    print(f"\n[{hash}]\n Pobieram publiczne IP i Port ze STUN (dla portu {local_udp_port})...")
 
     try:
         # Odpytujemy STUN, żeby otworzyć "dziurę" w NAT u klienta
@@ -96,8 +97,8 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
 
     print(f"Moje publiczne IP: {ext_ip}:{ext_port}")
 
-    payload = {"user": myname, "ip": ext_ip, "port": ext_port}
-    peer_name = None
+    payload = {"user": hash, "ip": ext_ip, "port": ext_port}
+    peer_hash = None
     peer_addr = None
 
     print(f"Szukam serwera w bazie Rendezvous PHP ({PHP_RENDEZVOUS_URL})...")
@@ -108,9 +109,9 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
             res = requests.post(PHP_RENDEZVOUS_URL, json=payload, timeout=5).json()
 
             if res.get("status") == "ok":
-                peer_name = res["peername"]
+                peer_hash = res["peername"]
                 peer_addr = (res["ip"], int(res["port"]))
-                print(f"!!! ZNALEZIONO SERWER !!! -> {peer_name} (celuję w {peer_addr[0]}:{peer_addr[1]})")
+                print(f"!!! ZNALEZIONO SERWER !!! -> {peer_hash}\n    (celuję w {peer_addr[0]}:{peer_addr[1]})")
                 break # Mamy IP serwera, idziemy dalej!
             else:
                 print("Czekam na serwer (brak go w bazie PHP)...")
@@ -129,11 +130,11 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
             print(f"Daję KCPTunowi {KCPTUN_WARMUP} sekundy na rozgrzanie tunelu...")
             time.sleep(KCPTUN_WARMUP)
 
-            is_possible = check_if_ssh_is_possible(peer_name, local_udp_port, timeout=SSH_TIMEOUT)
+            is_possible = check_if_ssh_is_possible(username, local_udp_port, timeout=SSH_TIMEOUT)
             if is_possible:
                 if automatic_ssh:
                     # Odpalamy SSH (terminal użytkownika zostanie tu przejęty)
-                    run_ssh_command(peer_name, local_udp_port)
+                    run_ssh_command(username, local_udp_port)
 
                     print("\nSesja SSH zakończona.")
                 else:
@@ -149,7 +150,7 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
                     relay_cl.start()
                     if automatic_ssh:
                         # Odpalamy SSH (terminal użytkownika zostanie tu przejęty)
-                        run_ssh_command(peer_name, local_udp_port)
+                        run_ssh_command(username, local_udp_port)
                         print("\nSesja SSH zakończona.")
                     else:
                         print("Klient relay dzia w tle. Naciśnij Ctrl+C, żeby zamknąć połączenie.")
@@ -166,11 +167,11 @@ def run_client(myname, server_addr, local_udp_port, automatic_ssh):
         print("Port zwolniony. Klient wyłączony.")
 
 
-def run_server(myname, server_addr, listening_port: int):
+def run_server(hash, server_addr, listening_port: int):
     PHP_RENDEZVOUS_URL = PHP_RENDEZVOUS_URL_FMSTR % server_addr[0]
     while True: # Zewnętrzna pętla maszyny stanów
         print(f"\n[STAN: LISTEN] Nasłuchuję na porcie {listening_port}...")
-        peer_name = None
+        peer_hash = None
 
         # --- FAZA 1: Podtrzymanie (Heartbeat) i nasłuchiwanie ---
         while True:
@@ -179,13 +180,13 @@ def run_server(myname, server_addr, listening_port: int):
                 _, ext_ip, ext_port = get_ip_info(source_port=listening_port, stun_host='stun.l.google.com', stun_port=19302)
 
                 # 2. Rejestrujemy się w bazie PHP na AWS
-                payload = {"user": myname, "ip": ext_ip, "port": ext_port}
+                payload = {"user": hash, "ip": ext_ip, "port": ext_port}
                 res = requests.post(PHP_RENDEZVOUS_URL, json=payload, timeout=5).json()
 
                 # 3. Sprawdzamy, czy PHP znalazło dla nas klienta
                 if res.get("status") == "ok":
-                    peer_name = res["peername"]
-                    print(f"!!! ZNALEZIONO KLIENTA !!! -> {peer_name}")
+                    peer_hash = res["peername"]
+                    print(f"!!! ZNALEZIONO KLIENTA !!! -> {peer_hash}")
                     break 
                 else:
                     print(f"[{time.strftime('%H:%M:%S')}] Heartbeat OK (Mój publiczny port: {ext_port}). Czekam na klienta...")
@@ -196,7 +197,7 @@ def run_server(myname, server_addr, listening_port: int):
             time.sleep(3)
 
         # --- FAZA 2: KCPTun i Monitorowanie Ruchu ---
-        print(f"\n[STAN: CONNECTED] Łączę z {peer_name}. Odpalam KCPTun...")
+        print(f"\n[STAN: CONNECTED] Łączę z klientem. Odpalam KCPTun...")
 
         # Uruchamiamy KCPTun Server
         with run_kcptun_server(listening_port=listening_port) as proc:
