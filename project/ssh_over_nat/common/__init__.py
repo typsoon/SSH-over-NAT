@@ -1,5 +1,6 @@
 from enum import Enum
 from .config_manager import GlobalConfig
+from .cache_dir import get_app_cache_dir
 
 
 class DefaultKeys(Enum):
@@ -14,17 +15,11 @@ PHP_RENDEZVOUS_URL_FMSTR = "http://%s/hashed.php"
 RELAY_URL_FMSTR = "http://%s/relay.php"
 
 SSH_PORT = 22
-
-# Global Defaults (Fallback if not provided via CLI)
-DEFAULTS = {
-    DefaultKeys.server_ip: None,
-    DefaultKeys.server_port: None,
-    DefaultKeys.local_server_port: 8025,
-    DefaultKeys.local_client_port: 8022,
-}
+APP_NAME = "ssh-over-nat"
 
 config = GlobalConfig(
     DefaultKeys,
+    APP_NAME,
     set_at_start={
         DefaultKeys.local_server_port.name: 8022,
         DefaultKeys.local_client_port.name: 8025,

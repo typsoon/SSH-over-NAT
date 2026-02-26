@@ -3,14 +3,13 @@ from pathlib import Path
 import json
 from enum import Enum
 
-APP_NAME = "ssh_over_nat"
 CONFIG_FILE = "environment.json"
 
 
 class GlobalConfig:
-    def __init__(self, enum_class: type[Enum], set_at_start=None):
+    def __init__(self, enum_class: type[Enum], app_name, set_at_start=None):
         self.enum_class = enum_class
-        config_dir = Path(user_config_dir(APP_NAME))
+        config_dir = Path(user_config_dir(app_name))
         config_dir.mkdir(parents=True, exist_ok=True)
         self.path = config_dir / CONFIG_FILE
         if not self.path.exists():

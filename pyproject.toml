@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools >= 77.0.3"]
-build_backend = "setuptools.build_meta"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "ssh-over-nat"
@@ -23,7 +23,6 @@ readme = "README.md"
 license = "MIT"
 
 [project.scripts]
-ssh-over-nat-service = "ssh_over_nat.service.__main__:main"
 ssh-over-nat = "ssh_over_nat.__main__:main"
 
 [tool.setuptools]
