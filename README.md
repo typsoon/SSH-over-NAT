@@ -1,6 +1,7 @@
 # SSH-over-NAT
 
-Challenge is to do achieve something like what you can see in `/archive` folder, but without using zerotier
+Challenge is to do achieve something like what you can see in
+`/archive` folder, but without using zerotier
 
 ## How to use
 
@@ -43,7 +44,10 @@ ssh-over-nat poc_client
 For additional info run
 
 ```bash
+ssh-over-nat list
+ssh-over-nat help
 ssh-over-nat help poc_server
 ssh-over-nat help poc_client
 ssh-over-nat help run_ssh_command
+ssh-over-nat help environment
 ```

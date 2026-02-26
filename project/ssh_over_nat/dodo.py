@@ -1,15 +1,5 @@
-import os
-from dotenv import load_dotenv
-
+from ssh_over_nat.common import config, DefaultKeys as K
 from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
-
-load_dotenv()
-
-# Global Defaults (Fallback if not provided via CLI)
-DEFAULT_SERVER_IP = os.getenv("REMOTE_SERVER_IP", "127.0.0.1")
-DEFAULT_SERVER_PORT = int(os.getenv("REMOTE_UDP_PORT", 50))
-DEFAULT_LOCAL_PORT_FOR_SRV_MODE = 8025
-DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE = 8022
 
 DOIT_CONFIG = {
     "verbosity": 2,
@@ -45,11 +35,15 @@ def task_run_ssh_command():
                 "long": "local-port",
                 "short": "p",
                 "type": int,
-                "default": DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE,
+                "default": config.get(K.local_client_port),
                 "help": "Local tunnel entry port (the one KCPTun is listening on)",
             },
         ],
     }
+
+
+def get_unset_str(name):
+    return f"Default value for {name} not set. Run ssh_over_nat environment -a set -k {name} -v value"
 
 
 def task_poc_client():
@@ -66,6 +60,15 @@ def task_poc_client():
 
         automatic_ssh = username is not None
         server_addr = (server_ip, server_port)
+
+        for var, name in (
+            [server_ip, K.server_ip.name],
+            [server_port, K.server_port.name],
+            [local_udp_port, K.local_client_port.name],
+        ):
+            if var is None:
+                print(get_unset_str(name))
+                return
 
         print(
             f"DEBUG: Querying '{hash}' at {server_addr} | Local Port: {local_udp_port}"
@@ -87,17 +90,17 @@ def task_poc_client():
             {
                 "name": "server_ip",
                 "long": "server-ip",
-                "short": "srvip",
+                "short": "i",
                 "type": str,
-                "default": DEFAULT_SERVER_IP,
+                "default": config.get(K.server_ip),
                 "help": "Remote VPS IP address",
             },
             {
                 "name": "server_port",
                 "long": "server-port",
-                "short": "srvprt",
+                "short": "r",
                 "type": int,
-                "default": DEFAULT_SERVER_PORT,
+                "default": config.get(K.server_port),
                 "help": "Remote VPS port",
             },
             {
@@ -105,7 +108,7 @@ def task_poc_client():
                 "long": "local-port",
                 "short": "p",
                 "type": int,
-                "default": DEFAULT_LOCAL_PORT_FOR_CLIENT_MODE,
+                "default": config.get(K.local_client_port),
                 "help": "Local port for KCPTun client to listen on",
             },
             {
@@ -135,6 +138,15 @@ def task_poc_server():
 
         server_addr = (server_ip, server_port)
 
+        for var, name in (
+            [server_ip, K.server_ip.name],
+            [server_port, K.server_port.name],
+            [local_udp_port, K.local_server_port.name],
+        ):
+            if var is None:
+                print(get_unset_str(name))
+                return
+
         print(
             f"DEBUG: Registering '{hash}' with {server_addr} | Local Bind: {local_udp_port}"
         )
@@ -155,17 +167,17 @@ def task_poc_server():
             {
                 "name": "server_ip",
                 "long": "server-ip",
-                "short": "srvip",
+                "short": "i",
                 "type": str,
-                "default": DEFAULT_SERVER_IP,
+                "default": config.get(K.server_ip, None),
                 "help": "Remote VPS IP address",
             },
             {
                 "name": "server_port",
                 "long": "server-port",
-                "short": "srvprt",
+                "short": "r",
                 "type": int,
-                "default": DEFAULT_SERVER_PORT,
+                "default": config.get(K.server_port, None),
                 "help": "Remote VPS port",
             },
             {
@@ -173,8 +185,88 @@ def task_poc_server():
                 "long": "local-port",
                 "short": "p",
                 "type": int,
-                "default": DEFAULT_LOCAL_PORT_FOR_SRV_MODE,
+                "default": config.get(K.local_server_port, None),
                 "help": "Port used by KCPTun server [not important]",
+            },
+        ],
+        "uptodate": [False],
+    }
+
+
+environment_usage = "ssh_over_nat environment --action get|set --key key --value value"
+
+
+def task_environment():
+    """Get/set global environment config"""
+
+    def set_value(key, value):
+        if key not in map(lambda e: e.name, K):
+            raise ValueError(f"Unknown key: {key}")
+
+        default = config.get(key)
+        if default is not None:
+            value = type(default)(value)
+
+        config.set(key, value)
+        print(f"{key} = {value}")
+
+    def get_value(key):
+        if key == "all":
+            for e in K:
+                print(f"{e.name}={config.get(e.name, '')}")
+            return
+
+        if key not in map(lambda e: e.name, K):
+            raise ValueError(f"Unknown key: {key}")
+
+        if key:
+            print(config.get(key, ""))
+
+    def environment_action(action, key, value):
+        if action is None:
+            print(environment_usage)
+            return
+
+        if key is None:
+            print("No key provided")
+            return
+
+        if action == "get":
+            if value is not None:
+                print("Too many args provided")
+                return
+
+            get_value(key)
+        else:
+            if value is None:
+                print("No value provided")
+                return
+
+            set_value(key, value) if action == "set" else get_value(key)
+
+    return {
+        "actions": [(environment_action,)],
+        "params": [
+            {
+                "name": "action",
+                "long": "action",
+                "short": "a",
+                "choices": [("set", "set a value"), ("get", "retrieve a value")],
+                "default": None,
+            },
+            {
+                "name": "key",
+                "long": "key",
+                "short": "k",
+                "choices": [(e.name, e.value) for e in K]
+                + [("all", "print all values")],
+                "default": None,
+            },
+            {
+                "name": "value",
+                "long": "value",
+                "short": "v",
+                "default": None,
             },
         ],
         "uptodate": [False],
