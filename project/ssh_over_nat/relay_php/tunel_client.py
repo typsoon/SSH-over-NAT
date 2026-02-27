@@ -98,8 +98,8 @@ def http_to_local(sock, my_conn_id, relay_url):
     print(f"[-] Stary wątek odbierający (ID: {my_conn_id}) został ubity.")
 
 
-def start_client(server_port, listen_port):
-    relay_url = RELAY_URL_FMSTR % server_port
+def start_client(server_ip, listen_port):
+    relay_url = RELAY_URL_FMSTR % server_ip
 
     global tx_seq, current_conn_id
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -127,10 +127,10 @@ def start_client(server_port, listen_port):
         send_to_relay_buffered("c2s", b"---NEW_SSH_SESSION---", relay_url)
 
         t1 = threading.Thread(
-            target=local_to_http, args=(sock, my_conn_id), daemon=True
+            target=local_to_http, args=(sock, my_conn_id, relay_url), daemon=True
         )
         t2 = threading.Thread(
-            target=http_to_local, args=(sock, my_conn_id), daemon=True
+            target=http_to_local, args=(sock, my_conn_id, relay_url), daemon=True
         )
         t1.start()
         t2.start()

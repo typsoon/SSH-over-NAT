@@ -1,12 +1,5 @@
 # SSH-over-NAT
 
-Challenge is to do achieve something like what you can see in
-`/archive` folder, but without using zerotier
-
-## How to use
-
-- Rendezvous server running apache2 with index.php and relay.php uploaded to it
-
 ## Installation
 
 ### Locally via pip
@@ -17,7 +10,11 @@ At project root run
 python -m pip install .
 ```
 
-### How to run it?
+## How to run it?
+
+### Prerequisites
+
+- Rendezvous server running apache2 with hashed.php and relay.php uploaded to it
 
 Start ssh server on the server side of ssh. For example
 

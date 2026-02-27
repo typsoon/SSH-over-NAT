@@ -1,8 +1,6 @@
-from pathlib import Path
 from ssh_over_nat.common import (
     config,
     APP_NAME,
-    get_app_cache_dir,
     DefaultKeys as K,
 )
 from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
@@ -11,7 +9,6 @@ from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
 DOIT_CONFIG = {
     "verbosity": 2,
     "default_tasks": [],
-    "dep_file": Path(get_app_cache_dir(APP_NAME)) / ".doit.db",
 }
 
 
