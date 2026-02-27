@@ -85,10 +85,11 @@ def main_loop(server_ip):
     print("[*] Cebula-Relay Serwer (BUFFERED) gotowy.")
 
     relay_url = RELAY_URL_FMSTR % server_ip
-
+    ttime = 0
     while True:
         data = recv_from_relay("c2s", relay_url)
         if data:
+            ttime=0
             if b"---NEW_SSH_SESSION---" in data:
                 print("\n[+] Nowa sesja.")
                 tx_seq = 0
@@ -122,3 +123,6 @@ def main_loop(server_ip):
                         pass
         else:
             time.sleep(0.05)
+            ttime += 0.05
+            if(ttime > 150):
+                return

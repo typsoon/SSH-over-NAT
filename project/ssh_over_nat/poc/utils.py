@@ -253,7 +253,7 @@ def run_server(hash, server_addr, listening_port: int):
 
                     start_relay_server(server_addr[0])
 
-                    break
+                    continue
 
                 idle_timer = 0
                 check_interval = 10
