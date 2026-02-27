@@ -159,7 +159,9 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
 
                 import multiprocessing
 
-                relay_cl = multiprocessing.Process(target=start_relay_client)
+                relay_cl = multiprocessing.Process(
+                    target=start_relay_client, args=[server_addr[0], local_udp_port]
+                )
 
                 try:
                     relay_cl.start()

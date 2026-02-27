@@ -103,7 +103,7 @@ def main_loop(server_ip):
                 try:
                     current_sock.connect((LOCALHOST, SSH_PORT))
                     threading.Thread(
-                        target=ssh_to_http, args=(current_sock,), daemon=True
+                        target=ssh_to_http, args=(current_sock, relay_url), daemon=True
                     ).start()
                 except Exception as e:
                     print(f"[!] Błąd SSH: {e}")
