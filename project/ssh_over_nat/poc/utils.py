@@ -5,6 +5,7 @@ import sys
 import time
 import requests
 import psutil
+import multiprocessing
 
 from .._vendor.stun import get_ip_info
 from ..common import LOCALHOST, PHP_RENDEZVOUS_URL_FMSTR
@@ -157,8 +158,6 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
                 print("SSH nie jest możliwe, przełaczam się na relay")
                 end_proc(proc)
 
-                import multiprocessing
-
                 relay_cl = multiprocessing.Process(
                     target=start_relay_client, args=[server_addr[0], local_udp_port]
                 )
@@ -173,6 +172,7 @@ def run_client(hash, server_addr, local_udp_port, automatic_ssh, username):
                         print(
                             "Klient relay dzia w tle. Naciśnij Ctrl+C, żeby zamknąć połączenie."
                         )
+                    relay_cl.join()
                 except KeyboardInterrupt:
                     print("\nPrzerwano ręcznie (Ctrl+C).")
                     print("Zabijam klienta relay")
@@ -296,5 +296,5 @@ def run_server(hash, server_addr, listening_port: int):
                 # --- FAZA 3: Cleanup ---
                 print(f"\n[STAN: CLEANUP] Zabijam proces KCPTun (PID: {proc.pid})...")
 
-                print("Port lokalny zwolniony. Powrót do nasłuchiwania...")
-                time.sleep(3)
+        print("Port lokalny zwolniony. Powrót do nasłuchiwania...")
+        time.sleep(3)
