@@ -1,10 +1,9 @@
 [build-system]
-requires = ["setuptools >= 77.0.3"]
+requires = ["setuptools", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ssh-over-nat"
-# version = '1.0.0'
 dynamic = ["version"]
 
 dependencies = [
@@ -15,11 +14,11 @@ dependencies = [
   "platformdirs"
 ]
 
-requires-python = ">= 3.10"
+requires-python = ">= 3.9"
 
 description = "This package uses NAT-traversal techniques to bypass NAT when running ssh"
 readme = "README.md"
-license = "MIT"
+license = { text = "MIT" }
 
 [project.scripts]
 ssh-over-nat = "ssh_over_nat.__main__:main"
@@ -33,3 +32,6 @@ include = ["ssh_over_nat*"]
 
 [tool.setuptools.package-data]
 "ssh_over_nat" = ["kcptun_bin/*"]
+
+[tool.setuptools_scm]
+write_to = "project/ssh_over_nat/__version__.py"

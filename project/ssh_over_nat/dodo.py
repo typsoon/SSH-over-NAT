@@ -3,12 +3,16 @@ from ssh_over_nat.common import (
     APP_NAME,
     DefaultKeys as K,
 )
+from ssh_over_nat.common.cache_dir import get_app_cache_dir
 from ssh_over_nat.poc.utils import run_client, run_server, run_ssh_command
 
 
 DOIT_CONFIG = {
     "verbosity": 2,
     "default_tasks": [],
+    # sqlite3 supports concurrent access
+    "backend": "sqlite3",
+    "dep_file": str(get_app_cache_dir(APP_NAME) / ".doit.db"),
 }
 
 
