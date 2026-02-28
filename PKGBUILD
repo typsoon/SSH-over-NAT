@@ -8,7 +8,7 @@ repoaddr=https://github.com/typsoon/SSH-over-NAT
 url="$repoaddr"
 license=('MIT')
 depends=('python' 'python-requests' 'python-psutil' 'python-pydantic' 'python-platformdirs' 'python-doit')
-makedepends=('python-setuptools' 'python-build' 'python-wheel' 'git' 'python-pip')
+makedepends=('python-setuptools' 'python-setuptools-scm' 'python-build' 'python-wheel' 'git' 'python-pip')
 source=("$proj_name::git+$repoaddr.git#branch=main")
 sha256sums=('SKIP')
 
